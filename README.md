@@ -7,7 +7,7 @@ scripts and detailed tutorial will be developed and uploaded later on.
 
 Before executing the script, please download the dataset from [here](https://drive.google.com/file/d/1MB4gLI_lRbVqmQA0ofnqwM9qFJ1joQwE/view) 
 and save it in `./raw` file. After the code is executed, the reconstructed data will be saved to `./recon`. You can refer to
-the comments in the script to modify the configuration setting according to your source and detector context.
+the comments in the script to modify the configuration setting in terms of your source and detector context.
 
 
 ## Requirements
