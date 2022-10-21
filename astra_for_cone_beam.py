@@ -19,6 +19,11 @@ Inspection Information:
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial.transform import Rotation as R
+import astra
+import os
+import imageio.v2 as imageio
+import time
+import utils
 
 
 # # example code for Reading a RAW file:
@@ -38,43 +43,54 @@ from scipy.spatial.transform import Rotation as R
 
 
 
-
-import numpy as np
-import astra
-import os
-import imageio.v2 as imageio
-import time
-import matplotlib.pyplot as plt
-
-
 #### user defined settings #####################################################
 
-# define a sub-sampling factor in angular direction
-# (all reference reconstructions are computed with full angular resolution)
-angluar_sub_sampling = 1
-# select of voxels per mm in one direction (higher = larger res) for volume reconstruction
-# (all reference reconstructions are computed with 10)
-voxel_per_mm = 45
+## configuration of reconstruction space
 
-# we enter here some intrinsic details of the dataset needed for our reconstruction scripts
-# set the variable "data_path" to the path where the dataset is stored on your own workstation
-data_path = './raw/'
+x_min, x_max = -20, 20 # [mm] reconstruction volume range
+y_min, y_max = -20, 20 # [mm] reconstruction volume range
+z_min, z_max = -20, 20  # [mm] reconstruction volume range
 
-# set the variable "recon_path" to the path where you would like to store the
-# reconstructions you compute
-recon_path = './recon'
+x_vol_sz, y_vol_sz, z_vol_sz = 1500, 1500, 1500 # volex number for x, y, z. Please make sure x_vol_sz=y_vol_sz
 
-# the prefix of raw data
+
+## file path and prefix configuration
+# raw data path
+data_path = 'H:\Reconstructed\CStalk'
+# reconstruction path
+recon_folder = 'recon'
+# prefix of raw data
 projs_name = 'CrnStlk{}.raw'
-
 # number of projections
 n_pro = 360
 
-# size of the reconstruction volume in voxels
-vol_sz = 3*(1500 + 1,)
+# set True when you already use Matlab script to rotate raw data by 90 degrees
+ard_rot = True
 
-# set true if you already rotate raw image by 90 degree
-ard_rot = False
+# detector configuration
+projs_cols = 3888
+projs_rows = 3072
+det_spacing_x = 7.47942e-02  # [mm]
+det_spacing_y = 7.48047e-02  # [mm]
+
+
+# distance of object to detector
+dist_orgin_detector = 985
+# distance of source to object
+dist_source_origin = 123.125  # [mm]
+# distance of object to detector
+dist_origin_detector = dist_orgin_detector - dist_source_origin  # [mm]
+magnification = dist_orgin_detector / dist_source_origin # [mm]
+
+# source position
+src_x_det_crd = -1.04712  # [mm]
+src_y_det_crd = -38.5992  # [mm]
+src_z_det_crd = dist_orgin_detector # [mm]
+
+# center of rotation offset
+rot_x_det_crd = 0.46329  # [mm]
+rot_y_det_crd = 0  # [mm]
+rot_z_det_crd = dist_origin_detector # [mm]
 
 
 #### load data #################################################################
@@ -83,13 +99,6 @@ t = time.time()
 print('load data', flush=True)
 
 
-# the configuration of detector
-projs_cols = 3888
-projs_rows = 3072
-
-det_spacing_x = 7.47942e-02  # [mm]
-det_spacing_y = 7.48047e-02  # [mm]
-
 angles = np.linspace(0, 2 * np.pi, num=n_pro, endpoint=False)
 
 # create the numpy array which will receive projection data from raw data
@@ -97,26 +106,25 @@ projs = np.zeros((projs_rows, n_pro, projs_cols), dtype=np.float32) # (n_pro, pr
 
 
 # load projection data
-imageSize = (3888, 3072)
+imageSize = (projs_cols, projs_rows)
+if ard_rot:
+    imageSize = list(reversed(imageSize))
 
 for i in range(n_pro):
 
     npimg = np.fromfile(os.path.join(data_path, projs_name.format(i)), dtype=np.uint16)
-    if ard_rot:
-        imageSize = list(reversed(imageSize))
-
     npimg = npimg.reshape(imageSize)
-    ## you can check the orientation of raw image by plotting it
+    ## check raw image
     # print(type(npimg))
     # plt.imshow(npimg)
     # plt.show()
-
     if ard_rot:
         npimg = np.rot90(npimg)
 
     npimg = np.flipud(npimg)
     npimg = np.transpose(npimg)
     projs[:, i, :] = npimg # (projs_rows, n_pro, projs_cols)
+
 
 print(np.round_(time.time() - t, 3), 'sec elapsed')
 
@@ -125,16 +133,14 @@ print(np.round_(time.time() - t, 3), 'sec elapsed')
 
 t = time.time()
 print('pre-process data', flush=True)
-
 # take the negative log to linearize the data according to the Beer-Lambert law
+
 projs /= 65535
+
 np.log(projs, out=projs)
 np.negative(projs, out=projs)
 projs = np.ascontiguousarray(projs)
-
 print(np.round_(time.time() - t, 3), 'sec elapsed')
-
-
 
 ### compute FDK reconstruction #################################################
 
@@ -142,38 +148,22 @@ t = time.time()
 print('compute reconstruction', flush=True)
 
 
-# size of a cubic voxel in mm
-vox_sz  = 1/voxel_per_mm
-
 # numpy array holding the reconstruction volume
+vol_sz = [x_vol_sz, y_vol_sz, z_vol_sz] # CStalk
 vol_rec = np.zeros(vol_sz, dtype=np.float32)
 
 # we need to specify the details of the reconstruction space to ASTRA
 # this is done by a "volume geometry" type of structure, in the form of a Python dictionary
 # by default, ASTRA assumes a voxel size of 1, we need to scale the reconstruction space here by the actual voxel size
 vol_geom = astra.create_vol_geom(vol_sz)
-vol_geom['option']['WindowMinX'] = vol_geom['option']['WindowMinX'] * vox_sz
-vol_geom['option']['WindowMaxX'] = vol_geom['option']['WindowMaxX'] * vox_sz
-vol_geom['option']['WindowMinY'] = vol_geom['option']['WindowMinY'] * vox_sz
-vol_geom['option']['WindowMaxY'] = vol_geom['option']['WindowMaxY'] * vox_sz
-vol_geom['option']['WindowMinZ'] = vol_geom['option']['WindowMinZ'] * vox_sz
-vol_geom['option']['WindowMaxZ'] = vol_geom['option']['WindowMaxZ'] * vox_sz
+vol_geom['option']['WindowMinX'] = x_min
+vol_geom['option']['WindowMaxX'] = x_max
+vol_geom['option']['WindowMinY'] = y_min
+vol_geom['option']['WindowMaxY'] = y_max
+vol_geom['option']['WindowMinZ'] = z_min
+vol_geom['option']['WindowMaxZ'] = z_max
 
 
-# set up configuration
-dist_source_detector = 985  # [mm]
-dist_origin_detector = 861.875  # [mm]
-dist_source_origin = dist_source_detector - dist_origin_detector  # [mm]
-
-# source position in the coordinate of detector
-src_x_det_crd = -1.04712  # [mm] # CStlk
-src_y_det_crd = -38.5992  # [mm] # CStlk
-src_z_det_crd = dist_source_detector
-
-# rotation center position in the coordinate of detector
-rot_x_det_crd = 0.46329  # [mm] # CStalk
-rot_y_det_crd = 0  # [mm]
-rot_z_det_crd = dist_origin_detector
 
 angles = np.linspace(0, 2*np.pi, n_pro, False)
 
@@ -184,7 +174,9 @@ def cal_vecs(src_x_det_crd, src_y_det_crd, src_z_det_crd, rot_x_det_crd, rot_y_d
                -src_y_det_crd * (src_z_det_crd - rot_z_det_crd) / src_z_det_crd]
     det_pos = [-src_x_det_crd-rot_x_det_crd, rot_z_det_crd, src_y_det_crd * rot_z_det_crd / src_z_det_crd]
 
+    # # legacy code
     # flip_src_pos_z = False    # CStalk
+    #
     # if flip_src_pos_z:
     #     src_pos[2] = -src_pos[2]
     #     det_pos[2] = -det_pos[2]
@@ -234,7 +226,6 @@ def cal_vecs(src_x_det_crd, src_y_det_crd, src_z_det_crd, rot_x_det_crd, rot_y_d
 vecs = cal_vecs(src_x_det_crd, src_y_det_crd, src_z_det_crd, rot_x_det_crd, rot_y_det_crd, rot_z_det_crd, angles, det_spacing_x, det_spacing_y)
 proj_geom = astra.create_proj_geom('cone_vec',  projs_rows, projs_cols, vecs)
 
-
 # register both volume and projection geometries and arrays to ASTRA
 vol_id  = astra.data3d.link('-vol', vol_geom, vol_rec)
 proj_id = astra.data3d.link('-sino', proj_geom, projs)
@@ -258,7 +249,15 @@ astra.algorithm.delete(alg_id)
 astra.data3d.delete(proj_id)
 astra.data3d.delete(vol_id)
 
+
 print(np.round_(time.time() - t, 3), 'sec elapsed')
+
+
+
+### remove edge noise ########################################################
+mask = utils.gen_mask(vol_rec, x_min, x_max, magnification, projs_cols, det_spacing_x, src_x_det_crd, rot_x_det_crd)
+vol_rec = utils.remove_edge_noise(vol_rec, mask)
+
 
 
 ### save reconstruction ########################################################
@@ -266,14 +265,20 @@ print(np.round_(time.time() - t, 3), 'sec elapsed')
 t = time.time()
 print('save results', flush=True)
 
+
+print(f'vol_rec {vol_rec.shape} {np.max(vol_rec)} {np.min(vol_rec)}')
+
+
+recon_path = os.path.join(data_path, recon_folder)
+print(recon_path)
 # create the directory in case it doesn't exist yet
 if not os.path.exists(recon_path):
     os.makedirs(recon_path)
 
 # Save every slice in  the volume as a separate tiff file
 for i in range(vol_sz[0]):
-    slice_path = os.path.join(recon_path, 'fdk_ass{}_vmm{}_{:03}.tiff'.format(
-                                  angluar_sub_sampling, voxel_per_mm, i))
+    slice_path = os.path.join(recon_path, 'recon_{:03}.tiff'.format(i))
     imageio.imwrite(slice_path, vol_rec[i,...])
+
 
 print(np.round_(time.time() - t, 3), 'sec elapsed')
