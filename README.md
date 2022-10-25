@@ -1,13 +1,14 @@
 # Astra-toolbox-for-cone-beam
 This is a collection of Python scripts for implementing [ASTRA Toolbox](https://github.com/astra-toolbox/astra-toolbox) 
 for cone-beam X-ray CT reconstruction. The complete scripts consist of raw data loading, configuration loading, center 
-of rotation determination, back-propagation/iterative reconstruction, ring removal, and 3D volume file generation. The 
-current script only includes raw data loading, configuration loading, and back-propogation reconstruction. The other 
-scripts and detailed tutorial will be developed and uploaded later on.
+of rotation determination, back-propagation/iterative reconstruction, edge noise removal, and 3D volume generation. The 
+current script includes all functions but 3D volume generation. We will add denoising, 3D volume generation, and 
+detailed tutorial later on.
 
 Before executing the script, please download the dataset from [here](https://drive.google.com/file/d/1MB4gLI_lRbVqmQA0ofnqwM9qFJ1joQwE/view) 
-and save it in `./raw` file. After the code is executed, the reconstructed data will be saved to `./recon`. You can refer to
-the comments in the script to modify the configuration setting in terms of your source and detector context.
+and save it in `./raw` file. The image for determining the center of rotation will be saved to `offset_determination`.
+After the code is executed, the reconstructed data will be saved to `./recon`. You can refer to the comments in the 
+script to modify the configuration setting in terms of your source and detector context.
 
 
 ## Requirements

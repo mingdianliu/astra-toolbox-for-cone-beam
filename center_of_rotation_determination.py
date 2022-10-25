@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-# @Time    : 10/25/2022 10:35 AM
+# @Time    : 10/23/2022 4:26 PM
 # @Author  : Mingdian Liu
 # @Email   : mingdian@iastate.edu lmdvigor@gmail.com
 # @File    : center_of_rotation_determination.py
 # @Software: PyCharm
+
 
 """
 Inspection Information:
@@ -60,26 +61,25 @@ angluar_sub_sampling = 1
 
 ## configuration of reconstruction space
 
-x_min, x_max = -18.175, 18.175 # [mm] reconstruction volume range
-y_min, y_max = -18.175, 18.175 # [mm] reconstruction volume range
-z_min, z_max = -18.175, 18.175  # [mm] reconstruction volume range
+x_min, x_max = -20, 20 # [mm] reconstruction volume range
+y_min, y_max = -20, 20 # [mm] reconstruction volume range
+z_min, z_max = -20, 20  # [mm] reconstruction volume range
 
 x_vol_sz, y_vol_sz, z_vol_sz = 1500, 1500, 1500 # volex number for x, y, z. Please make sure x_vol_sz=y_vol_sz
-# x_vol_sz, y_vol_sz, z_vol_sz = 3000, 3000, 3000 # volex number for x, y, z. Please make sure x_vol_sz=y_vol_sz
 
 
 ## file path and prefix configuration
 # raw data path
-data_path = './CStalk/' # the path for input data (.raw)
+data_path = 'H:\Reconstructed\CStalk' # the path for input data (.raw)
 # reconstruction path
-recon_path = './CStalk_reconstruction'
+recon_folder = 'offset_determination'
 # prefix of raw data
 projs_name = 'CrnStlk{}.raw'
 # number of projections
 n_pro = 360 # CrnStlk
 
 # set True when you already use Matlab script to rotate raw data by 90 degrees
-ard_rot = False  # CStalk
+ard_rot = True  # CStalk
 
 # detector configuration
 projs_cols = 3888 # the number of column in detector array
@@ -107,8 +107,8 @@ offset_start = 0
 offset_end = 1.2
 offset_slice_num = 32
 offset_arr = np.linspace(offset_start, offset_end, num=int(offset_slice_num+2))
-offset_arr = [-0.1, -0.08, -0.06, -0.04, -0.02, 0, 0.02, 0.04, 0.06, 0.08, 0.1]
-offset_arr = [tmp+0.46329 for tmp in offset_arr]
+
+
 
 rot_x_det_crd = 0  # [mm] # CStalk
 rot_y_det_crd = 0  # [mm]
@@ -200,6 +200,12 @@ vol_rec = np.zeros([x_vol_sz, y_vol_sz], dtype=np.float32)
 
 angles = np.linspace(0, 2*np.pi, n_pro, False)
 
+recon_path = os.path.join(data_path, recon_folder)
+print(recon_path)
+if not os.path.exists(recon_path):
+    os.makedirs(recon_path)
+
+
 for rot_x_det_crd in offset_arr:
 
     vecs = utils.cal_vecs_2d(src_x_det_crd, src_y_det_crd, src_z_det_crd, rot_x_det_crd, rot_y_det_crd, rot_z_det_crd, angles, det_spacing_x, det_spacing_y)
@@ -220,21 +226,6 @@ for rot_x_det_crd in offset_arr:
     proj_id = astra.data2d.link('-sino', proj_geom, sinogram)
 
 
-    # ## FBP
-    # cfg_fdk = astra.astra_dict('FBP_CUDA')
-    #
-    # cfg_fdk['ProjectionDataId'] = proj_id
-    # cfg_fdk['ReconstructionDataId'] = vol_id
-    # alg_id = astra.algorithm.create(cfg_fdk)
-    # astra.algorithm.run(alg_id, 1)
-
-    # ## SIRT
-    # cfg_fdk = astra.astra_dict('SIRT_CUDA')
-    #
-    # cfg_fdk['ProjectionDataId'] = proj_id
-    # cfg_fdk['ReconstructionDataId'] = vol_id
-    # alg_id = astra.algorithm.create(cfg_fdk)
-    # astra.algorithm.run(alg_id, 200)
 
     ## SART
     cfg_fdk = astra.astra_dict('SART_CUDA')
@@ -245,34 +236,15 @@ for rot_x_det_crd in offset_arr:
     astra.algorithm.run(alg_id, 500)
 
 
-    # ## CGLS
-    # cfg_fdk = astra.astra_dict('CGLS_CUDA')
-    #
-    # cfg_fdk['ProjectionDataId'] = proj_id
-    # cfg_fdk['ReconstructionDataId'] = vol_id
-    # alg_id = astra.algorithm.create(cfg_fdk)
-    # astra.algorithm.run(alg_id, 1)
 
-
-
-    # ## CPU algorithms
-    # cfg_fdk = astra.astra_dict('CGLS')
-    # cfg_fdk['ProjectionId'] = proj_id_new
-    # cfg_fdk['ProjectionDataId'] = proj_id
-    # cfg_fdk['ReconstructionDataId'] = vol_id
-    # alg_id = astra.algorithm.create(cfg_fdk)
-    # astra.algorithm.run(alg_id, 1)
-
-    # ## template
+    # ## SIRT
     # cfg_fdk = astra.astra_dict('SIRT_CUDA')
     #
     # cfg_fdk['ProjectionDataId'] = proj_id
     # cfg_fdk['ReconstructionDataId'] = vol_id
-    # # cfg_fdk['option'] = { 'FilterType': 'Ram-Lak' }
-    # # cfg_fdk['option'] = {}
-    # cfg_fdk['option']['ShortScan'] = False
     # alg_id = astra.algorithm.create(cfg_fdk)
-    # astra.algorithm.run(alg_id, 1)
+    # astra.algorithm.run(alg_id, 200)
+
 
 
     # release memory allocated by ASTRA structures
@@ -290,7 +262,7 @@ for rot_x_det_crd in offset_arr:
 
     plt.imshow(vol_rec)
     plt.show()
-    slice_path = '{:.6f}.png'.format(rot_x_det_crd)
+    slice_path = os.path.join(recon_path,'offset_{:.6f}.png'.format(rot_x_det_crd))
     imageio.imwrite(slice_path, vol_rec)
 
 
