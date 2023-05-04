@@ -16,6 +16,20 @@ script to modify the configuration setting in terms of your source and detector 
 * All scripts make use of the development version (more recent than 1.9.0dev) of the 
 * [ASTRA toolbox](https://www.astra-toolbox.com/). If you are using conda, this is available through the `astra-toolbox/label/dev` channel.
 
+## Setup environment
+
+Update apt-get
+
+```shell
+sudo apt update
+```
+
+Setup conda env:
+```shell
+conda env create -f environment.yml
+conda activate astra-cone-beam
+```
+
 ## Contributors
 
 Mingdian Liu (lmdvigor@gmail.com)
