@@ -5,16 +5,19 @@ of rotation determination, back-propagation/iterative reconstruction, edge noise
 current script includes all functions but 3D volume generation. We will add denoising, 3D volume generation, and 
 detailed tutorial later on.
 
+If you think this is useful for your research, please star this repository to make it noticeable to more people.
+
 Before executing the script, please download the dataset from [here](https://drive.google.com/file/d/1MB4gLI_lRbVqmQA0ofnqwM9qFJ1joQwE/view) 
 and save it in `./raw` file. The image for determining the center of rotation will be saved to `offset_determination`.
 After the code is executed, the reconstructed data will be saved to `./recon`. You can refer to the comments in the 
 script to modify the configuration setting in terms of your source and detector context.
 
+**If this link expires, please reach out to me to access the new link to the dataset.**
+
 
 ## Requirements
 
-* All scripts make use of the development version (more recent than 1.9.0dev) of the 
-* [ASTRA toolbox](https://www.astra-toolbox.com/). If you are using conda, this is available through the `astra-toolbox/label/dev` channel.
+* All scripts make use of the development version (more recent than 1.9.0dev) of the [ASTRA toolbox](https://www.astra-toolbox.com/). If you are using conda, this is available through the `astra-toolbox/label/dev` channel.
 
 ## Setup environment
 
